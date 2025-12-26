@@ -1,0 +1,67 @@
+# PropHunt Configuration
+# Version: 1.0.0
+
+# General Settings
+general:
+  # Debug mode for extra logging
+  debug: false
+  # Default language
+  language: en
+
+# Game Settings
+game:
+  # Minimum players to start
+  min-players: 6
+  # Maximum players per game
+  max-players: 20
+  # Lobby countdown in seconds
+  lobby-countdown: 30
+  # Hide time in seconds (props get to hide)
+  hide-time: 30
+  # Seek time in seconds (main game duration)
+  seek-time: 300
+  # Prop percentage (0.0 to 1.0)
+  prop-percentage: 0.6
+
+# Team Settings
+teams:
+  props:
+    # Starting health for props
+    health: 20
+    # Can props lock in place
+    can-lock: true
+  hunters:
+    # Starting health for hunters
+    health: 20
+    # Damage penalty for missing
+    miss-penalty: 2.0
+    # Cooldown between attacks in ticks
+    attack-cooldown: 20
+
+# Taunt Settings
+taunts:
+  # Forced taunt interval in seconds
+  forced-interval: 45
+  # Voluntary taunt cooldown in seconds
+  voluntary-cooldown: 30
+  # Points for voluntary taunt
+  voluntary-points: 50
+
+# Scoring
+scoring:
+  prop-survival-per-minute: 10
+  prop-win-bonus: 100
+  hunter-kill: 50
+  hunter-win-bonus: 100
+
+# Storage Settings
+storage:
+  # Storage type: yaml, sqlite, mysql
+  type: yaml
+  # MySQL settings (if type is mysql)
+  mysql:
+    host: localhost
+    port: 3306
+    database: prophunt
+    username: root
+    password: ""
