@@ -1,0 +1,55 @@
+# PropHunt Messages
+# Use & for color codes, {placeholder} for variables
+
+prefix: "&8[&6PropHunt&8] "
+
+# General Messages
+general:
+  no-permission: "&cYou don't have permission to do that!"
+  player-only: "&cThis command can only be used by players!"
+  unknown-command: "&cUnknown command. Use /ph help for help."
+  reload-success: "&aConfiguration reloaded successfully!"
+
+# Game Messages
+game:
+  join: "&a{player} has joined the game! &7({current}/{max})"
+  leave: "&c{player} has left the game! &7({current}/{max})"
+  already-in-game: "&cYou are already in a game!"
+  not-in-game: "&cYou are not in a game!"
+  game-full: "&cThis game is full!"
+  game-starting: "&aGame starting in &e{seconds} &aseconds!"
+  game-started: "&aThe game has started! Hunters, find the props!"
+  hide-phase: "&eProps, you have &c{seconds} &eseconds to hide!"
+  seek-phase: "&cHunters released! Find the props!"
+  prop-win: "&6Props win! &aThey survived the hunt!"
+  hunter-win: "&6Hunters win! &aAll props have been found!"
+
+# Team Messages
+team:
+  assigned-prop: "&aYou are a &6PROP&a! Hide from the hunters!"
+  assigned-hunter: "&cYou are a &4HUNTER&c! Find and eliminate the props!"
+
+# Prop Messages
+prop:
+  disguised: "&aYou are now disguised as &e{block}&a!"
+  locked: "&7You are now locked in place."
+  unlocked: "&7You can now move again."
+
+# Hunter Messages
+hunter:
+  miss-penalty: "&cMissed! You took &e{damage} &cdamage!"
+  kill: "&aYou eliminated &e{player}&a!"
+
+# Taunt Messages
+taunt:
+  forced: "&eTaunt time! All props must reveal themselves!"
+  voluntary: "&e{player} &7taunted for bonus points!"
+
+# Arena Messages
+arena:
+  created: "&aArena &e{name} &acreated successfully!"
+  deleted: "&cArena &e{name} &chas been deleted!"
+  not-found: "&cArena &e{name} &cnot found!"
+  already-exists: "&cArena &e{name} &calready exists!"
+  list-header: "&6Available Arenas:"
+  list-entry: "&7- &e{name} &7({status})"

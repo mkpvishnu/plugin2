@@ -1,0 +1,44 @@
+name: PropHunt
+version: ${project.version}
+main: com.example.prophunt.PropHuntPlugin
+api-version: '1.21'
+description: A hide-and-seek minigame where props disguise as blocks
+author: mkpvishnu
+website: https://github.com/mkpvishnu/plugin2
+
+softdepend:
+  - PlaceholderAPI
+  - Vault
+
+commands:
+  prophunt:
+    description: Main PropHunt command
+    aliases: [ph]
+    usage: /<command> <subcommand> [args]
+  arena:
+    description: Arena management command
+    usage: /<command> <create|delete|edit|list> [args]
+    permission: prophunt.admin
+
+permissions:
+  prophunt.play:
+    description: Allows player to join PropHunt games
+    default: true
+  prophunt.stats:
+    description: Allows player to view their stats
+    default: true
+  prophunt.admin:
+    description: Allows access to admin commands
+    default: op
+  prophunt.admin.arena:
+    description: Allows arena management
+    default: op
+  prophunt.admin.reload:
+    description: Allows reloading the plugin
+    default: op
+  prophunt.admin.forcestart:
+    description: Allows force starting games
+    default: op
+  prophunt.admin.forcestop:
+    description: Allows force stopping games
+    default: op

@@ -1,0 +1,123 @@
+# Reusable Build Workflow
+# This is the base workflow that can be called by other workflows
+# It handles compilation, testing, and JAR creation
+
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      maven-args:
+        description: 'Additional Maven arguments'
+        required: false
+        type: string
+        default: ''
+      upload-artifact:
+        description: 'Whether to upload the JAR as an artifact'
+        required: false
+        type: boolean
+        default: true
+      artifact-name:
+        description: 'Name for the uploaded artifact'
+        required: false
+        type: string
+        default: 'prophunt-jar'
+      run-tests:
+        description: 'Whether to run tests'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      artifact-name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact-name }}
+      jar-name:
+        description: 'Name of the built JAR file'
+        value: ${{ jobs.build.outputs.jar-name }}
+      version:
+        description: 'Version of the built artifact'
+        value: ${{ jobs.build.outputs.version }}
+
+jobs:
+  build:
+    name: Build with Java ${{ inputs.java-version }}
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ inputs.artifact-name }}
+      jar-name: ${{ steps.build-info.outputs.jar-name }}
+      version: ${{ steps.build-info.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: |
+          if [ "${{ inputs.run-tests }}" = "true" ]; then
+            mvn clean package ${{ inputs.maven-args }}
+          else
+            mvn clean package -DskipTests ${{ inputs.maven-args }}
+          fi
+
+      - name: Get build information
+        id: build-info
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          JAR_NAME="prophunt-${VERSION}.jar"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "jar-name=${JAR_NAME}" >> $GITHUB_OUTPUT
+          echo "Built version: ${VERSION}"
+          echo "JAR name: ${JAR_NAME}"
+
+      - name: Verify JAR was created
+        run: |
+          JAR_PATH="target/${{ steps.build-info.outputs.jar-name }}"
+          if [ -f "$JAR_PATH" ]; then
+            echo "JAR file created successfully: $JAR_PATH"
+            ls -lh "$JAR_PATH"
+          else
+            echo "Error: JAR file not found at $JAR_PATH"
+            echo "Contents of target directory:"
+            ls -la target/
+            exit 1
+          fi
+
+      - name: Upload JAR artifact
+        if: inputs.upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: target/${{ steps.build-info.outputs.jar-name }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: inputs.run-tests && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+          retention-days: 7
+          if-no-files-found: ignore
