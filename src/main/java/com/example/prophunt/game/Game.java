@@ -475,6 +475,36 @@ public class Game {
         return state.isJoinable() && getPlayerCount() < settings.getMaxPlayers();
     }
 
+    /**
+     * Checks if the game is full.
+     *
+     * @return true if at max players
+     */
+    public boolean isFull() {
+        return getPlayerCount() >= settings.getMaxPlayers();
+    }
+
+    /**
+     * Broadcasts a message to a specific team.
+     *
+     * @param team the team to broadcast to
+     * @param message the message
+     */
+    public void broadcastToTeam(Team team, String message) {
+        String colorized = MessageUtil.colorize(message);
+        String prefix = plugin.getMessageUtil().getPrefix();
+
+        if (team == Team.HUNTERS) {
+            for (HunterPlayer hunter : teamManager.getAliveHunters()) {
+                hunter.getPlayer().sendMessage(prefix + colorized);
+            }
+        } else if (team == Team.PROPS) {
+            for (PropPlayer prop : teamManager.getAliveProps()) {
+                prop.getPlayer().sendMessage(prefix + colorized);
+            }
+        }
+    }
+
     // ===== Messaging =====
 
     /**

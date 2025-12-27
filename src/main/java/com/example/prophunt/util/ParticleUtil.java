@@ -71,7 +71,7 @@ public final class ParticleUtil {
 
         world.spawnParticle(Particle.EXPLOSION, location.clone().add(0, 0.5, 0),
                 1, 0, 0, 0, 0);
-        world.spawnParticle(Particle.ITEM_CRACK, location.clone().add(0, 0.5, 0),
+        world.spawnParticle(Particle.ITEM, location.clone().add(0, 0.5, 0),
                 30, 0.3, 0.3, 0.3, 0.1,
                 new org.bukkit.inventory.ItemStack(org.bukkit.Material.STONE));
     }

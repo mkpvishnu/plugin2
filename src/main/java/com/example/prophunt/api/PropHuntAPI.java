@@ -143,7 +143,7 @@ public class PropHuntAPI {
         Game game = plugin.getGameManager().getGame(arena);
         if (game == null) return true;
 
-        return game.getState().canJoin() && !game.isFull();
+        return game.getState().isJoinable() && !game.isFull();
     }
 
     /**

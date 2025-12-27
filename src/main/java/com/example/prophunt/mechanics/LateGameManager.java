@@ -3,6 +3,8 @@ package com.example.prophunt.mechanics;
 import com.example.prophunt.PropHuntPlugin;
 import com.example.prophunt.game.Game;
 import com.example.prophunt.game.GameState;
+import com.example.prophunt.player.GamePlayer;
+import com.example.prophunt.player.HunterPlayer;
 import com.example.prophunt.player.PropPlayer;
 import com.example.prophunt.util.MessageUtil;
 import org.bukkit.Location;
@@ -100,7 +102,7 @@ public class LateGameManager {
     private void activatePhase1(Game game, LateGameState state) {
         state.phase1Active = true;
 
-        game.broadcast(MessageUtil.colorize(
+        game.broadcastRawMessage(MessageUtil.colorize(
                 "&6&l[!] &eLate game! &7Hunters are getting hints..."));
 
         plugin.debug("Late game phase 1 activated for %s", game.getArena().getName());
@@ -112,12 +114,12 @@ public class LateGameManager {
     private void activatePhase2(Game game, LateGameState state) {
         state.phase2Active = true;
 
-        game.broadcast(MessageUtil.colorize(
+        game.broadcastRawMessage(MessageUtil.colorize(
                 "&c&l[!] &eFinal minute! &7Props are becoming visible..."));
 
         // Give hunters speed boost
-        for (Player hunter : game.getTeamManager().getAliveHunterPlayers()) {
-            hunter.addPotionEffect(new PotionEffect(
+        for (HunterPlayer hunter : game.getTeamManager().getAliveHunters()) {
+            hunter.getPlayer().addPotionEffect(new PotionEffect(
                     PotionEffectType.SPEED, 1200, 0, false, false));
         }
 
@@ -130,7 +132,7 @@ public class LateGameManager {
     private void activatePhase3(Game game, LateGameState state) {
         state.phase3Active = true;
 
-        game.broadcast(MessageUtil.colorize(
+        game.broadcastRawMessage(MessageUtil.colorize(
                 "&4&l[!] &c30 SECONDS! &7All props are now glowing!"));
 
         // Make all props glow
@@ -140,7 +142,8 @@ public class LateGameManager {
         }
 
         // Play intense sound
-        for (Player player : game.getPlayers()) {
+        for (GamePlayer gp : game.getTeamManager().getAllPlayers()) {
+            Player player = gp.getPlayer();
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
         }
 
@@ -155,9 +158,10 @@ public class LateGameManager {
             Location loc = prop.getLocation().clone().add(0, 2, 0);
 
             // Spawn particles visible to hunters
-            for (Player hunter : game.getTeamManager().getAliveHunterPlayers()) {
-                if (hunter.getLocation().distance(loc) < 30) {
-                    hunter.spawnParticle(Particle.END_ROD, loc, 3, 0.5, 0.5, 0.5, 0.01);
+            for (HunterPlayer hunter : game.getTeamManager().getAliveHunters()) {
+                Player hunterPlayer = hunter.getPlayer();
+                if (hunterPlayer.getLocation().distance(loc) < 30) {
+                    hunterPlayer.spawnParticle(Particle.END_ROD, loc, 3, 0.5, 0.5, 0.5, 0.01);
                 }
             }
         }
@@ -174,9 +178,10 @@ public class LateGameManager {
             loc.getWorld().spawnParticle(Particle.SOUL, loc, 5, 0.3, 0.5, 0.3, 0.02);
 
             // Heartbeat sound to nearby hunters
-            for (Player hunter : game.getTeamManager().getAliveHunterPlayers()) {
-                if (hunter.getLocation().distance(loc) < 20) {
-                    hunter.playSound(loc, Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.5f);
+            for (HunterPlayer hunter : game.getTeamManager().getAliveHunters()) {
+                Player hunterPlayer = hunter.getPlayer();
+                if (hunterPlayer.getLocation().distance(loc) < 20) {
+                    hunterPlayer.playSound(loc, Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.5f);
                 }
             }
         }

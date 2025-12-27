@@ -4,6 +4,7 @@ import com.example.prophunt.PropHuntPlugin;
 import com.example.prophunt.game.Game;
 import com.example.prophunt.game.GameState;
 import com.example.prophunt.player.PropPlayer;
+import com.example.prophunt.team.Team;
 import com.example.prophunt.util.MessageUtil;
 import com.example.prophunt.util.ParticleUtil;
 import com.example.prophunt.util.SoundUtil;
@@ -74,7 +75,7 @@ public class TauntManager {
         }, interval * 20L, interval * 20L);
 
         // Store task for cleanup
-        forcedTauntTasks.put(game.getArena().getName().hashCode() + UUID.randomUUID(), task);
+        forcedTauntTasks.put(UUID.randomUUID(), task);
     }
 
     /**
@@ -99,8 +100,11 @@ public class TauntManager {
         plugin.getMessageUtil().send(player, "prop.forced-taunt");
 
         // Message to hunters
-        prop.getGame().broadcastToHunters(
-                MessageUtil.colorize("&e[!] &7A prop just taunted nearby!"));
+        Game game = prop.getGame();
+        if (game != null) {
+            game.broadcastToTeam(Team.HUNTERS,
+                    MessageUtil.colorize("&e[!] &7A prop just taunted nearby!"));
+        }
 
         plugin.debug("Forced taunt for prop %s", player.getName());
     }
@@ -143,7 +147,7 @@ public class TauntManager {
         plugin.getMessageUtil().send(player, "prop.taunt-success");
 
         // Message to hunters
-        game.broadcastToHunters(
+        game.broadcastToTeam(Team.HUNTERS,
                 MessageUtil.colorize("&e[!] &7A prop is taunting! Listen carefully..."));
 
         plugin.debug("Voluntary taunt by prop %s", player.getName());
