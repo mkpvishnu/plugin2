@@ -2,9 +2,11 @@ package com.example.prophunt.commands;
 
 import com.example.prophunt.PropHuntPlugin;
 import com.example.prophunt.arena.Arena;
+import com.example.prophunt.arena.ArenaRegion;
 import com.example.prophunt.arena.ArenaScanner;
 import com.example.prophunt.game.Game;
 import com.example.prophunt.game.GameState;
+import com.example.prophunt.managers.SelectionManager;
 import com.example.prophunt.player.GamePlayer;
 import com.example.prophunt.stats.PlayerStats;
 import com.example.prophunt.stats.StatsManager;
@@ -66,6 +68,7 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
             // Admin commands
             case "create" -> handleCreate(sender, subArgs);
             case "delete" -> handleDelete(sender, subArgs);
+            case "setup" -> handleSetup(sender, subArgs);
             case "setspawn" -> handleSetSpawn(sender, subArgs);
             case "setregion" -> handleSetRegion(sender, subArgs);
             case "scan" -> handleScan(sender, subArgs);
@@ -396,6 +399,60 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
         plugin.getArenaManager().save(arena);
     }
 
+    private void handleSetup(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+        if (!(sender instanceof Player player)) {
+            msg.send(sender, "general.player-only");
+            return;
+        }
+
+        SelectionManager selectionManager = plugin.getSelectionManager();
+
+        // Check if exiting setup mode
+        if (args.length > 0 && args[0].equalsIgnoreCase("done")) {
+            if (selectionManager.isInSetupMode(player)) {
+                selectionManager.exitSetupMode(player);
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aExited setup mode."));
+            } else {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cYou are not in setup mode."));
+            }
+            return;
+        }
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph setup <arena> or /ph setup done"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        // Enter setup mode
+        selectionManager.enterSetupMode(player);
+
+        // Give selection wand
+        player.getInventory().addItem(SelectionManager.createWand());
+
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&a&lEntered setup mode for arena: &e" + arena.getName()));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&6You received a &eRegion Selector &6(Golden Axe):"));
+        sender.sendMessage(MessageUtil.colorize("  &7Left-click a block: &eSet position 1"));
+        sender.sendMessage(MessageUtil.colorize("  &7Right-click a block: &eSet position 2"));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&6After selecting, use:"));
+        sender.sendMessage(MessageUtil.colorize("  &e/ph setregion " + arena.getName() + " arena &7- Set play area"));
+        sender.sendMessage(MessageUtil.colorize("  &e/ph setregion " + arena.getName() + " lobby &7- Set lobby area"));
+        sender.sendMessage(MessageUtil.colorize("  &e/ph setregion " + arena.getName() + " huntercage &7- Set hunter cage"));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&7Use &e/ph setup done &7when finished."));
+
+        // Show current arena status
+        handleInfo(sender, args);
+    }
+
     private void handleSetRegion(CommandSender sender, String[] args) {
         if (!checkAdmin(sender)) return;
         if (!(sender instanceof Player player)) {
@@ -403,8 +460,59 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Region setting requires WorldEdit selection."));
-        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Feature coming soon - use config files for now."));
+        if (args.length < 2) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph setregion <arena> <arena|lobby|huntercage>"));
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7First select two corners with the Region Selector wand."));
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Use &e/ph setup <arena> &7to get the wand."));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        SelectionManager selectionManager = plugin.getSelectionManager();
+
+        // Check if player has a complete selection
+        if (!selectionManager.hasCompleteSelection(player)) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cYou need to select two corners first!"));
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Use &e/ph setup " + arena.getName() + " &7to get the selection wand."));
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Left-click = Pos1, Right-click = Pos2"));
+            return;
+        }
+
+        ArenaRegion region = selectionManager.createRegionFromSelection(player);
+        if (region == null) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cFailed to create region. Ensure both positions are in the same world."));
+            return;
+        }
+
+        String type = args[1].toLowerCase();
+        switch (type) {
+            case "arena" -> {
+                arena.setArenaRegion(region);
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aArena region set! &7" + region.getDimensions() + " (" + region.getVolume() + " blocks)"));
+            }
+            case "lobby" -> {
+                arena.setLobbyRegion(region);
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aLobby region set! &7" + region.getDimensions() + " (" + region.getVolume() + " blocks)"));
+            }
+            case "huntercage", "cage" -> {
+                arena.setHunterCageRegion(region);
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aHunter cage region set! &7" + region.getDimensions() + " (" + region.getVolume() + " blocks)"));
+            }
+            default -> {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cInvalid region type! Use: arena, lobby, huntercage"));
+                return;
+            }
+        }
+
+        // Save and clear selection
+        plugin.getArenaManager().save(arena);
+        selectionManager.clearSelection(player);
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Selection cleared. Select new corners for another region."));
     }
 
     private void handleScan(CommandSender sender, String[] args) {
@@ -594,11 +702,15 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
 
             // Arena name completion
             if (Arrays.asList("join", "delete", "enable", "disable", "forcestart",
-                    "forcestop", "scan", "setspawn", "info").contains(sub)) {
+                    "forcestop", "scan", "setspawn", "setregion", "setup", "info").contains(sub)) {
                 for (String name : plugin.getArenaManager().getArenaNames()) {
                     if (name.toLowerCase().startsWith(partial)) {
                         completions.add(name);
                     }
+                }
+                // "done" option for setup command
+                if (sub.equals("setup") && "done".startsWith(partial)) {
+                    completions.add("done");
                 }
             }
 
@@ -617,6 +729,15 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
             // Spawn type after arena name
             if (sub.equals("setspawn")) {
                 for (String type : Arrays.asList("prop", "hunter", "lobby")) {
+                    if (type.startsWith(partial)) {
+                        completions.add(type);
+                    }
+                }
+            }
+
+            // Region type after arena name
+            if (sub.equals("setregion")) {
+                for (String type : Arrays.asList("arena", "lobby", "huntercage")) {
                     if (type.startsWith(partial)) {
                         completions.add(type);
                     }

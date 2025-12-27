@@ -8,6 +8,7 @@ import com.example.prophunt.disguise.DisguiseManager;
 import com.example.prophunt.game.GameManager;
 import com.example.prophunt.gui.PropSelectorGUI;
 import com.example.prophunt.listeners.*;
+import com.example.prophunt.managers.SelectionManager;
 import com.example.prophunt.mechanics.LateGameManager;
 import com.example.prophunt.mechanics.TauntManager;
 import com.example.prophunt.player.PlayerManager;
@@ -43,6 +44,9 @@ public class PropHuntPlugin extends JavaPlugin {
     // Mechanics
     private TauntManager tauntManager;
     private LateGameManager lateGameManager;
+
+    // Setup
+    private SelectionManager selectionManager;
 
     // GUI
     private PropSelectorGUI propSelectorGUI;
@@ -133,6 +137,9 @@ public class PropHuntPlugin extends JavaPlugin {
         tauntManager = new TauntManager(this);
         lateGameManager = new LateGameManager(this);
 
+        // Setup managers
+        selectionManager = new SelectionManager();
+
         // GUI
         propSelectorGUI = new PropSelectorGUI(this);
 
@@ -166,6 +173,7 @@ public class PropHuntPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MovementListener(this), this);
         getServer().getPluginManager().registerEvents(new GameProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new PropItemListener(this), this);
+        getServer().getPluginManager().registerEvents(new SetupListener(this), this);
 
         debug("Event listeners registered");
     }
@@ -236,6 +244,10 @@ public class PropHuntPlugin extends JavaPlugin {
 
     public LateGameManager getLateGameManager() {
         return lateGameManager;
+    }
+
+    public SelectionManager getSelectionManager() {
+        return selectionManager;
     }
 
     public PropSelectorGUI getPropSelectorGUI() {
