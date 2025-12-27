@@ -1,6 +1,8 @@
 package com.example.prophunt.listeners;
 
 import com.example.prophunt.PropHuntPlugin;
+import com.example.prophunt.api.events.PropFoundEvent;
+import com.example.prophunt.api.events.PropKilledEvent;
 import com.example.prophunt.config.GameSettings;
 import com.example.prophunt.disguise.DisguiseManager;
 import com.example.prophunt.disguise.PropDisguise;
@@ -12,6 +14,7 @@ import com.example.prophunt.player.PropPlayer;
 import com.example.prophunt.team.Team;
 import com.example.prophunt.util.ParticleUtil;
 import com.example.prophunt.util.SoundUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -177,6 +180,16 @@ public class CombatListener implements Listener {
         Player propPlayer = prop.getPlayer();
         GameSettings settings = game.getSettings();
 
+        double damage = 4.0; // 2 hearts
+
+        // Fire prop found event (cancellable)
+        PropFoundEvent foundEvent = new PropFoundEvent(game, hunter, prop, damage);
+        Bukkit.getPluginManager().callEvent(foundEvent);
+        if (foundEvent.isCancelled()) {
+            return;
+        }
+        damage = foundEvent.getDamage();
+
         // First hit on this prop?
         boolean firstHit = !prop.isRevealed();
 
@@ -193,8 +206,7 @@ public class CombatListener implements Listener {
         propPlayer.addPotionEffect(new org.bukkit.potion.PotionEffect(
                 org.bukkit.potion.PotionEffectType.SPEED, 60, 1, false, false));
 
-        // Deal damage to prop
-        double damage = 4.0; // 2 hearts
+        // Deal damage to prop (using damage from event which can be modified)
         propPlayer.damage(0.01); // Trigger damage animation
         propPlayer.setHealth(Math.max(0, propPlayer.getHealth() - damage));
 
@@ -242,6 +254,10 @@ public class CombatListener implements Listener {
     private void killProp(HunterPlayer hunter, PropPlayer prop, Game game) {
         Player hunterPlayer = hunter.getPlayer();
         Player propPlayer = prop.getPlayer();
+
+        // Fire prop killed event
+        PropKilledEvent killedEvent = new PropKilledEvent(game, hunter, prop);
+        Bukkit.getPluginManager().callEvent(killedEvent);
 
         // Remove disguise
         plugin.getDisguiseManager().removeDisguise(prop);

@@ -131,6 +131,16 @@ public class MessageUtil {
     }
 
     /**
+     * Sends a raw colorized message (not from config).
+     *
+     * @param sender the receiver
+     * @param message the raw message to colorize and send
+     */
+    public void sendColorized(CommandSender sender, String message) {
+        sender.sendMessage(colorize(message));
+    }
+
+    /**
      * Sends an action bar message to a player.
      *
      * @param player the player

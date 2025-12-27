@@ -165,6 +165,7 @@ public class PropHuntPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CombatListener(this), this);
         getServer().getPluginManager().registerEvents(new MovementListener(this), this);
         getServer().getPluginManager().registerEvents(new GameProtectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new PropItemListener(this), this);
 
         debug("Event listeners registered");
     }

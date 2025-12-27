@@ -6,7 +6,11 @@ import com.example.prophunt.arena.ArenaScanner;
 import com.example.prophunt.game.Game;
 import com.example.prophunt.game.GameState;
 import com.example.prophunt.player.GamePlayer;
+import com.example.prophunt.stats.PlayerStats;
+import com.example.prophunt.stats.StatsManager;
 import com.example.prophunt.util.MessageUtil;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -177,13 +181,110 @@ public class PropHuntCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleStats(CommandSender sender, String[] args) {
-        // Stats will be implemented with storage system
-        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Statistics coming soon!"));
+        Player targetPlayer;
+
+        if (args.length > 0) {
+            // Look up another player's stats
+            @SuppressWarnings("deprecation")
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(args[0]);
+            if (!offline.hasPlayedBefore() && !offline.isOnline()) {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cPlayer not found: " + args[0]));
+                return;
+            }
+            if (offline.isOnline()) {
+                targetPlayer = offline.getPlayer();
+            } else {
+                // For offline players, we'd need async lookup - for now show error
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cPlayer must be online to view stats."));
+                return;
+            }
+        } else {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph stats <player>"));
+                return;
+            }
+            targetPlayer = (Player) sender;
+        }
+
+        PlayerStats stats = plugin.getStatsManager().getStats(targetPlayer);
+
+        sender.sendMessage(MessageUtil.colorize("&6&l========== " + targetPlayer.getName() + "'s Stats =========="));
+        sender.sendMessage(MessageUtil.colorize("&7Games: &f" + stats.getGamesPlayed() +
+                " &7| Wins: &a" + stats.getGamesWon() +
+                " &7| Losses: &c" + stats.getGamesLost()));
+        sender.sendMessage(MessageUtil.colorize("&7Win Rate: &e" + String.format("%.1f", stats.getWinRate()) + "%"));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&a&lAs Prop:"));
+        sender.sendMessage(MessageUtil.colorize("  &7Times Played: &f" + stats.getTimesAsProp() +
+                " &7| Survived: &a" + stats.getPropSurvives() +
+                " &7| Caught: &c" + stats.getPropDeaths()));
+        sender.sendMessage(MessageUtil.colorize("  &7Survival Rate: &e" + String.format("%.1f", stats.getPropSurvivalRate()) + "%"));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&c&lAs Hunter:"));
+        sender.sendMessage(MessageUtil.colorize("  &7Times Played: &f" + stats.getTimesAsHunter() +
+                " &7| Found: &e" + stats.getPropsFound() +
+                " &7| Killed: &c" + stats.getPropsKilled()));
+        sender.sendMessage(MessageUtil.colorize("  &7Accuracy: &e" + String.format("%.1f", stats.getHunterAccuracy()) + "%" +
+                " &7| K/D: &f" + String.format("%.2f", stats.getKDR())));
+        sender.sendMessage(MessageUtil.colorize(""));
+        sender.sendMessage(MessageUtil.colorize("&6Total Points: &e" + stats.getTotalPoints() +
+                " &7| Best Game: &e" + stats.getHighestGamePoints()));
+        sender.sendMessage(MessageUtil.colorize("&6&l=========================================="));
     }
 
     private void handleTop(CommandSender sender, String[] args) {
-        // Leaderboard will be implemented with storage system
-        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Leaderboard coming soon!"));
+        StatsManager.StatType statType = StatsManager.StatType.TOTAL_POINTS;
+
+        if (args.length > 0) {
+            try {
+                statType = StatsManager.StatType.valueOf(args[0].toUpperCase());
+            } catch (IllegalArgumentException e) {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize(
+                        "&cInvalid stat type. Valid: points, wins, kills, found, survives"));
+                return;
+            }
+        }
+
+        final StatsManager.StatType finalStatType = statType;
+        sender.sendMessage(MessageUtil.colorize("&6&l========== Leaderboard: " + statType.getDisplayName() + " =========="));
+
+        plugin.getStatsManager().getTopPlayers(statType, 10).thenAccept(topPlayers -> {
+            if (topPlayers.isEmpty()) {
+                sender.sendMessage(MessageUtil.colorize("&7No statistics recorded yet."));
+                return;
+            }
+
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                int rank = 1;
+                for (PlayerStats stats : topPlayers) {
+                    String value = switch (finalStatType) {
+                        case TOTAL_POINTS -> String.valueOf(stats.getTotalPoints());
+                        case GAMES_WON -> String.valueOf(stats.getGamesWon());
+                        case GAMES_PLAYED -> String.valueOf(stats.getGamesPlayed());
+                        case PROPS_KILLED -> String.valueOf(stats.getPropsKilled());
+                        case PROPS_FOUND -> String.valueOf(stats.getPropsFound());
+                        case PROP_SURVIVES -> String.valueOf(stats.getPropSurvives());
+                        case HIGHEST_GAME_POINTS -> String.valueOf(stats.getHighestGamePoints());
+                        case TOTAL_PLAY_TIME -> formatPlayTime(stats.getTotalPlayTime());
+                    };
+
+                    String color = rank <= 3 ? (rank == 1 ? "&6" : rank == 2 ? "&7" : "&c") : "&f";
+                    sender.sendMessage(MessageUtil.colorize(
+                            color + "#" + rank + " &e" + stats.getLastKnownName() + " &7- &f" + value));
+                    rank++;
+                }
+                sender.sendMessage(MessageUtil.colorize("&6&l============================================"));
+            });
+        });
+    }
+
+    private String formatPlayTime(long seconds) {
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        if (hours > 0) {
+            return hours + "h " + minutes + "m";
+        }
+        return minutes + "m";
     }
 
     private void showHelp(CommandSender sender) {

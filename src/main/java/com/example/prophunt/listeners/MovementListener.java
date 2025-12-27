@@ -1,6 +1,8 @@
 package com.example.prophunt.listeners;
 
 import com.example.prophunt.PropHuntPlugin;
+import com.example.prophunt.arena.Arena;
+import com.example.prophunt.arena.ArenaRegion;
 import com.example.prophunt.disguise.DisguiseManager;
 import com.example.prophunt.disguise.PropDisguise;
 import com.example.prophunt.game.Game;
@@ -26,6 +28,38 @@ public class MovementListener implements Listener {
 
     public MovementListener(PropHuntPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Enforces arena boundaries for all players in a game.
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerMoveBoundary(PlayerMoveEvent event) {
+        // Only check for actual position changes
+        if (!hasMovedBlock(event.getFrom(), event.getTo())) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+
+        // Check if player is in a game
+        GamePlayer gp = plugin.getPlayerManager().getPlayer(player);
+        if (gp == null) return;
+
+        Game game = gp.getGame();
+        if (game == null || !game.getState().isInProgress()) return;
+
+        // Check arena boundaries
+        Arena arena = game.getArena();
+        ArenaRegion region = arena.getArenaRegion();
+        if (region == null) return;
+
+        Location to = event.getTo();
+        if (to != null && !region.contains(to)) {
+            // Player trying to leave arena - push them back
+            event.setCancelled(true);
+            plugin.getMessageUtil().sendActionBar(player, "&cYou cannot leave the arena!");
+        }
     }
 
     /**

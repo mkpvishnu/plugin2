@@ -1,6 +1,7 @@
 package com.example.prophunt.game;
 
 import com.example.prophunt.PropHuntPlugin;
+import com.example.prophunt.api.events.*;
 import com.example.prophunt.arena.Arena;
 import com.example.prophunt.config.GameSettings;
 import com.example.prophunt.player.GamePlayer;
@@ -10,6 +11,7 @@ import com.example.prophunt.team.Team;
 import com.example.prophunt.team.TeamManager;
 import com.example.prophunt.util.MessageUtil;
 import com.example.prophunt.util.SoundUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -66,6 +68,16 @@ public class Game {
             return false;
         }
 
+        // Fire join event (cancellable)
+        PlayerJoinGameEvent joinEvent = new PlayerJoinGameEvent(this, player);
+        Bukkit.getPluginManager().callEvent(joinEvent);
+        if (joinEvent.isCancelled()) {
+            if (joinEvent.getCancelReason() != null) {
+                plugin.getMessageUtil().sendColorized(player, joinEvent.getCancelReason());
+            }
+            return false;
+        }
+
         GamePlayer gamePlayer = new GamePlayer(player, this);
         gamePlayer.saveState();
         gamePlayer.prepare();
@@ -110,6 +122,19 @@ public class Game {
         }
 
         if (gamePlayer == null) return;
+
+        // Fire leave event
+        PlayerLeaveGameEvent.LeaveReason reason = disconnect ?
+                PlayerLeaveGameEvent.LeaveReason.DISCONNECT :
+                PlayerLeaveGameEvent.LeaveReason.QUIT;
+        PlayerLeaveGameEvent leaveEvent = new PlayerLeaveGameEvent(this, player, reason);
+        Bukkit.getPluginManager().callEvent(leaveEvent);
+
+        // Clean up prop-specific state
+        if (gamePlayer instanceof PropPlayer prop) {
+            plugin.getDisguiseManager().removeDisguise(prop);
+            plugin.getTauntManager().clearPlayer(uuid);
+        }
 
         // Restore state
         gamePlayer.restoreState();
@@ -270,12 +295,18 @@ public class Game {
                 "&7Hide from the hunters!");
         SoundUtil.playGameStart(player);
 
-        // Give prop selector item (will be implemented with disguise system)
-        // Give nether star for prop selection
+        // Give prop selector item
         player.getInventory().setItem(0,
                 new com.example.prophunt.util.ItemBuilder(org.bukkit.Material.NETHER_STAR)
                         .name("&b&lSelect Disguise")
                         .lore("&7Right-click to choose your prop!")
+                        .build());
+
+        // Give taunt item
+        player.getInventory().setItem(1,
+                new com.example.prophunt.util.ItemBuilder(org.bukkit.Material.FEATHER)
+                        .name("&e&lTaunt")
+                        .lore("&7Right-click to taunt hunters!", "&7Risky but earns bonus points!")
                         .build());
     }
 
@@ -348,6 +379,10 @@ public class Game {
             SoundUtil.playHuntersReleased(prop.getPlayer());
         }
 
+        // Start mechanics managers
+        plugin.getTauntManager().startForcedTaunts(this);
+        plugin.getLateGameManager().startMonitoring(this);
+
         // Start hunting timer
         timer.start(settings.getSeekTime(),
                 remaining -> {
@@ -372,7 +407,10 @@ public class Game {
 
         Team winner = teamManager.getWinningTeam();
         if (winner != null) {
-            endGame(winner);
+            GameEndEvent.EndReason reason = winner == Team.HUNTERS ?
+                    GameEndEvent.EndReason.ALL_PROPS_KILLED :
+                    GameEndEvent.EndReason.ALL_HUNTERS_DEAD;
+            endGame(winner, reason);
         }
     }
 
@@ -382,11 +420,32 @@ public class Game {
      * @param winner the winning team
      */
     public void endGame(Team winner) {
+        endGame(winner, GameEndEvent.EndReason.TIME_EXPIRED);
+    }
+
+    /**
+     * Ends the game with the specified winner and reason.
+     *
+     * @param winner the winning team
+     * @param reason the reason for ending
+     */
+    public void endGame(Team winner, GameEndEvent.EndReason reason) {
         if (state == GameState.ENDING || state == GameState.DISABLED) return;
 
         timer.stop();
         setState(GameState.ENDING);
         this.winner = winner;
+
+        // Fire game end event
+        GameEndEvent endEvent = new GameEndEvent(this, winner, reason);
+        Bukkit.getPluginManager().callEvent(endEvent);
+
+        // Stop mechanics managers
+        plugin.getTauntManager().stopForcedTaunts(this);
+        plugin.getLateGameManager().stopMonitoring(this);
+
+        // Update and save player stats
+        savePlayerStats(winner);
 
         // Announce winner
         String winMessage = winner == Team.PROPS ? "game.prop-win" : "game.hunter-win";
@@ -435,6 +494,16 @@ public class Game {
     public void reset() {
         timer.stop();
 
+        // Stop mechanics managers if still running
+        plugin.getTauntManager().stopForcedTaunts(this);
+        plugin.getLateGameManager().stopMonitoring(this);
+
+        // Remove all disguises first
+        for (PropPlayer prop : teamManager.getProps()) {
+            plugin.getDisguiseManager().removeDisguise(prop);
+            plugin.getTauntManager().clearPlayer(prop.getUuid());
+        }
+
         // Restore all players
         for (GamePlayer gp : teamManager.getAllPlayers()) {
             gp.restoreState();
@@ -454,6 +523,63 @@ public class Game {
         setState(GameState.WAITING);
     }
 
+    /**
+     * Saves player statistics at the end of a game.
+     *
+     * @param winner the winning team
+     */
+    private void savePlayerStats(Team winner) {
+        long gameDurationMs = getGameDuration();
+        long gameDurationSeconds = gameDurationMs / 1000;
+
+        for (GamePlayer gp : teamManager.getAllPlayers()) {
+            com.example.prophunt.stats.PlayerStats stats = plugin.getStatsManager().getStats(gp.getPlayer());
+
+            // Update general stats
+            stats.incrementGamesPlayed();
+            stats.addPlayTime(gameDurationSeconds);
+            stats.addPoints(gp.getPoints());
+
+            if (gp.getPoints() > stats.getHighestGamePoints()) {
+                stats.setHighestGamePoints(gp.getPoints());
+            }
+
+            // Check win/loss
+            boolean won = (gp.getTeam() == winner) ||
+                          (gp.isSpectator() && wasOnTeam(gp, winner));
+            if (won) {
+                stats.incrementGamesWon();
+            } else {
+                stats.incrementGamesLost();
+            }
+
+            // Team-specific stats
+            if (gp instanceof PropPlayer prop) {
+                stats.incrementTimesAsProp();
+                if (prop.getTeam() == Team.PROPS) {
+                    // Still alive at end
+                    stats.incrementPropSurvives();
+                    stats.addHiddenTime(prop.getTimeInGame());
+                } else if (prop.isSpectator()) {
+                    // Was eliminated
+                    stats.incrementPropDeaths();
+                }
+                stats.addSuccessfulTaunts(prop.getVoluntaryTaunts());
+            } else if (gp instanceof HunterPlayer hunter) {
+                stats.incrementTimesAsHunter();
+                stats.addPropsFound(hunter.getPropsFound());
+                stats.addPropsKilled(hunter.getPropsKilled());
+                stats.addWrongHits(hunter.getWrongHits());
+                if (hunter.isSpectator()) {
+                    stats.incrementHunterDeaths();
+                }
+            }
+
+            // Save to database
+            plugin.getStatsManager().saveStats(stats);
+        }
+    }
+
     // ===== State Management =====
 
     /**
@@ -462,8 +588,13 @@ public class Game {
      * @param state the new state
      */
     private void setState(GameState state) {
+        GameState previousState = this.state;
         this.state = state;
         plugin.debug("Game %s state changed to %s", arena.getName(), state);
+
+        // Fire state change event
+        GameStateChangeEvent event = new GameStateChangeEvent(this, previousState, state);
+        Bukkit.getPluginManager().callEvent(event);
     }
 
     /**
