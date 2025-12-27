@@ -1,0 +1,528 @@
+package com.example.prophunt.commands;
+
+import com.example.prophunt.PropHuntPlugin;
+import com.example.prophunt.arena.Arena;
+import com.example.prophunt.arena.ArenaScanner;
+import com.example.prophunt.game.Game;
+import com.example.prophunt.game.GameState;
+import com.example.prophunt.player.GamePlayer;
+import com.example.prophunt.util.MessageUtil;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * Main command handler for PropHunt.
+ */
+public class PropHuntCommand implements CommandExecutor, TabCompleter {
+
+    private final PropHuntPlugin plugin;
+    private final MessageUtil msg;
+
+    private static final List<String> PLAYER_COMMANDS = Arrays.asList(
+            "join", "leave", "list", "stats", "top", "help"
+    );
+
+    private static final List<String> ADMIN_COMMANDS = Arrays.asList(
+            "create", "delete", "setup", "setspawn", "setregion",
+            "scan", "enable", "disable", "forcestart", "forcestop",
+            "reload", "info"
+    );
+
+    public PropHuntCommand(PropHuntPlugin plugin) {
+        this.plugin = plugin;
+        this.msg = plugin.getMessageUtil();
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) {
+            showHelp(sender);
+            return true;
+        }
+
+        String subCommand = args[0].toLowerCase();
+        String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
+
+        switch (subCommand) {
+            // Player commands
+            case "join" -> handleJoin(sender, subArgs);
+            case "leave" -> handleLeave(sender);
+            case "list" -> handleList(sender);
+            case "stats" -> handleStats(sender, subArgs);
+            case "top" -> handleTop(sender, subArgs);
+            case "help" -> showHelp(sender);
+
+            // Admin commands
+            case "create" -> handleCreate(sender, subArgs);
+            case "delete" -> handleDelete(sender, subArgs);
+            case "setspawn" -> handleSetSpawn(sender, subArgs);
+            case "setregion" -> handleSetRegion(sender, subArgs);
+            case "scan" -> handleScan(sender, subArgs);
+            case "enable" -> handleEnable(sender, subArgs);
+            case "disable" -> handleDisable(sender, subArgs);
+            case "forcestart" -> handleForceStart(sender, subArgs);
+            case "forcestop" -> handleForceStop(sender, subArgs);
+            case "reload" -> handleReload(sender);
+            case "info" -> handleInfo(sender, subArgs);
+
+            default -> {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUnknown command. Use /ph help"));
+            }
+        }
+
+        return true;
+    }
+
+    // ===== Player Commands =====
+
+    private void handleJoin(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            msg.send(sender, "general.player-only");
+            return;
+        }
+
+        if (!player.hasPermission("prophunt.play")) {
+            msg.send(sender, "general.no-permission");
+            return;
+        }
+
+        // Check if already in game
+        if (plugin.getPlayerManager().isInGame(player)) {
+            msg.send(sender, "game.already-in-game");
+            return;
+        }
+
+        Game game;
+
+        if (args.length > 0) {
+            // Join specific arena
+            Arena arena = plugin.getArenaManager().getArena(args[0]);
+            if (arena == null) {
+                msg.send(sender, "arena.not-found", "name", args[0]);
+                return;
+            }
+            if (!arena.isEnabled()) {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cArena is disabled!"));
+                return;
+            }
+            if (!plugin.getGameManager().joinGame(player, arena)) {
+                msg.send(sender, "game.game-full");
+                return;
+            }
+            game = plugin.getGameManager().getGame(arena);
+        } else {
+            // Join any available arena
+            game = plugin.getGameManager().joinAnyGame(player);
+            if (game == null) {
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cNo available games!"));
+                return;
+            }
+        }
+    }
+
+    private void handleLeave(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg.send(sender, "general.player-only");
+            return;
+        }
+
+        if (!plugin.getPlayerManager().isInGame(player)) {
+            msg.send(sender, "game.not-in-game");
+            return;
+        }
+
+        plugin.getGameManager().leaveGame(player);
+        msg.send(sender, "game.leave");
+    }
+
+    private void handleList(CommandSender sender) {
+        sender.sendMessage(MessageUtil.colorize("&6&l========== PropHunt Arenas =========="));
+
+        for (Arena arena : plugin.getArenaManager().getArenas()) {
+            Game game = plugin.getGameManager().getGame(arena);
+            String status;
+            String players = "";
+
+            if (!arena.isEnabled()) {
+                status = "&8[DISABLED]";
+            } else if (game == null || game.getState() == GameState.WAITING) {
+                int count = game != null ? game.getPlayerCount() : 0;
+                status = "&a[WAITING]";
+                players = " &7(" + count + "/" + arena.getSettings().getMaxPlayers() + ")";
+            } else if (game.getState() == GameState.STARTING) {
+                status = "&e[STARTING]";
+                players = " &7(" + game.getPlayerCount() + "/" + arena.getSettings().getMaxPlayers() + ")";
+            } else if (game.getState().isInProgress()) {
+                status = "&c[IN GAME]";
+                players = " &7- " + game.getTimer().getFormattedTime() + " remaining";
+            } else {
+                status = "&7[ENDING]";
+            }
+
+            sender.sendMessage(MessageUtil.colorize(" &e" + arena.getName() + " " + status + players));
+        }
+
+        if (plugin.getArenaManager().getCount() == 0) {
+            sender.sendMessage(MessageUtil.colorize(" &7No arenas configured."));
+        }
+
+        sender.sendMessage(MessageUtil.colorize("&6&l======================================"));
+    }
+
+    private void handleStats(CommandSender sender, String[] args) {
+        // Stats will be implemented with storage system
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Statistics coming soon!"));
+    }
+
+    private void handleTop(CommandSender sender, String[] args) {
+        // Leaderboard will be implemented with storage system
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Leaderboard coming soon!"));
+    }
+
+    private void showHelp(CommandSender sender) {
+        sender.sendMessage(MessageUtil.colorize("&6&l========== PropHunt Help =========="));
+        sender.sendMessage(MessageUtil.colorize("&e/ph join [arena] &7- Join a game"));
+        sender.sendMessage(MessageUtil.colorize("&e/ph leave &7- Leave current game"));
+        sender.sendMessage(MessageUtil.colorize("&e/ph list &7- List arenas"));
+        sender.sendMessage(MessageUtil.colorize("&e/ph stats [player] &7- View statistics"));
+        sender.sendMessage(MessageUtil.colorize("&e/ph help &7- Show this help"));
+
+        if (sender.hasPermission("prophunt.admin")) {
+            sender.sendMessage(MessageUtil.colorize(""));
+            sender.sendMessage(MessageUtil.colorize("&c&lAdmin Commands:"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph create <name> &7- Create arena"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph delete <arena> &7- Delete arena"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph setspawn <type> &7- Set spawn (prop/hunter/lobby)"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph setregion <type> &7- Set region"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph scan <arena> &7- Scan for props"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph enable/disable <arena> &7- Toggle arena"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph forcestart/forcestop <arena> &7- Control games"));
+            sender.sendMessage(MessageUtil.colorize("&e/ph reload &7- Reload config"));
+        }
+        sender.sendMessage(MessageUtil.colorize("&6&l===================================="));
+    }
+
+    // ===== Admin Commands =====
+
+    private void handleCreate(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph create <name>"));
+            return;
+        }
+
+        String name = args[0];
+
+        if (plugin.getArenaManager().exists(name)) {
+            msg.send(sender, "arena.already-exists", "name", name);
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().create(name);
+        if (arena != null) {
+            msg.send(sender, "arena.created", "name", name);
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Use /ph setregion, /ph setspawn, and /ph scan to set up the arena."));
+        }
+    }
+
+    private void handleDelete(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph delete <arena>"));
+            return;
+        }
+
+        String name = args[0];
+
+        if (!plugin.getArenaManager().exists(name)) {
+            msg.send(sender, "arena.not-found", "name", name);
+            return;
+        }
+
+        // Force stop any running game
+        Arena arena = plugin.getArenaManager().getArena(name);
+        plugin.getGameManager().forceStop(arena);
+
+        if (plugin.getArenaManager().delete(name)) {
+            msg.send(sender, "arena.deleted", "name", name);
+        }
+    }
+
+    private void handleSetSpawn(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+        if (!(sender instanceof Player player)) {
+            msg.send(sender, "general.player-only");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph setspawn <arena> <prop|hunter|lobby>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        String type = args[1].toLowerCase();
+        switch (type) {
+            case "prop" -> {
+                arena.addPropSpawn(player.getLocation());
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aProp spawn #" + arena.getPropSpawns().size() + " set!"));
+            }
+            case "hunter" -> {
+                arena.addHunterSpawn(player.getLocation());
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aHunter spawn #" + arena.getHunterSpawns().size() + " set!"));
+            }
+            case "lobby" -> {
+                arena.setLobbySpawn(player.getLocation());
+                sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aLobby spawn set!"));
+            }
+            default -> sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cInvalid type! Use: prop, hunter, lobby"));
+        }
+
+        plugin.getArenaManager().save(arena);
+    }
+
+    private void handleSetRegion(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+        if (!(sender instanceof Player player)) {
+            msg.send(sender, "general.player-only");
+            return;
+        }
+
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Region setting requires WorldEdit selection."));
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Feature coming soon - use config files for now."));
+    }
+
+    private void handleScan(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph scan <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        if (arena.getArenaRegion() == null) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cArena region not set! Set it first."));
+            return;
+        }
+
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&7Scanning arena..."));
+
+        ArenaScanner.ScanResult result = plugin.getArenaManager().scanArena(arena);
+
+        if (result.isSuccess()) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&a" + result.getSummary()));
+        } else {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&c" + result.getError()));
+        }
+    }
+
+    private void handleEnable(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph enable <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        List<String> errors = plugin.getArenaManager().enable(arena);
+        if (errors.isEmpty()) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aArena '" + arena.getName() + "' enabled!"));
+        } else {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cCannot enable arena. Missing:"));
+            for (String error : errors) {
+                sender.sendMessage(MessageUtil.colorize("  &7- " + error));
+            }
+        }
+    }
+
+    private void handleDisable(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph disable <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        plugin.getGameManager().forceStop(arena);
+        plugin.getArenaManager().disable(arena);
+        sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aArena '" + arena.getName() + "' disabled!"));
+    }
+
+    private void handleForceStart(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph forcestart <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        if (plugin.getGameManager().forceStart(arena)) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aGame force started in " + arena.getName() + "!"));
+        } else {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cCannot start game. Need at least 2 players."));
+        }
+    }
+
+    private void handleForceStop(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph forcestop <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        if (plugin.getGameManager().forceStop(arena)) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&aGame force stopped in " + arena.getName() + "!"));
+        } else {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cNo game running in that arena."));
+        }
+    }
+
+    private void handleReload(CommandSender sender) {
+        if (!checkAdmin(sender)) return;
+
+        plugin.reload();
+        msg.send(sender, "general.reload-success");
+    }
+
+    private void handleInfo(CommandSender sender, String[] args) {
+        if (!checkAdmin(sender)) return;
+
+        if (args.length == 0) {
+            sender.sendMessage(msg.getPrefix() + MessageUtil.colorize("&cUsage: /ph info <arena>"));
+            return;
+        }
+
+        Arena arena = plugin.getArenaManager().getArena(args[0]);
+        if (arena == null) {
+            msg.send(sender, "arena.not-found", "name", args[0]);
+            return;
+        }
+
+        sender.sendMessage(MessageUtil.colorize("&6&l===== Arena: " + arena.getName() + " ====="));
+        sender.sendMessage(MessageUtil.colorize("&7Enabled: " + (arena.isEnabled() ? "&aYes" : "&cNo")));
+        sender.sendMessage(MessageUtil.colorize("&7Arena Region: " + (arena.getArenaRegion() != null ? "&aSet" : "&cNot set")));
+        sender.sendMessage(MessageUtil.colorize("&7Lobby Spawn: " + (arena.getLobbySpawn() != null ? "&aSet" : "&cNot set")));
+        sender.sendMessage(MessageUtil.colorize("&7Hunter Cage: " + (arena.getHunterCageRegion() != null ? "&aSet" : "&cNot set")));
+        sender.sendMessage(MessageUtil.colorize("&7Prop Spawns: &e" + arena.getPropSpawns().size()));
+        sender.sendMessage(MessageUtil.colorize("&7Hunter Spawns: &e" + arena.getHunterSpawns().size()));
+        sender.sendMessage(MessageUtil.colorize("&7Valid Props: &e" + arena.getPropRegistry().size()));
+
+        List<String> missing = arena.validate();
+        if (!missing.isEmpty()) {
+            sender.sendMessage(MessageUtil.colorize("&c&lMissing:"));
+            for (String m : missing) {
+                sender.sendMessage(MessageUtil.colorize("  &7- " + m));
+            }
+        }
+    }
+
+    private boolean checkAdmin(CommandSender sender) {
+        if (!sender.hasPermission("prophunt.admin")) {
+            msg.send(sender, "general.no-permission");
+            return false;
+        }
+        return true;
+    }
+
+    // ===== Tab Completion =====
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            // Main subcommands
+            List<String> commands = new ArrayList<>(PLAYER_COMMANDS);
+            if (sender.hasPermission("prophunt.admin")) {
+                commands.addAll(ADMIN_COMMANDS);
+            }
+            String partial = args[0].toLowerCase();
+            for (String cmd : commands) {
+                if (cmd.startsWith(partial)) {
+                    completions.add(cmd);
+                }
+            }
+        } else if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            String partial = args[1].toLowerCase();
+
+            // Arena name completion
+            if (Arrays.asList("join", "delete", "enable", "disable", "forcestart",
+                    "forcestop", "scan", "setspawn", "info").contains(sub)) {
+                for (String name : plugin.getArenaManager().getArenaNames()) {
+                    if (name.toLowerCase().startsWith(partial)) {
+                        completions.add(name);
+                    }
+                }
+            }
+
+            // Spawn type completion
+            if (sub.equals("setspawn")) {
+                for (String type : Arrays.asList("prop", "hunter", "lobby")) {
+                    if (type.startsWith(partial)) {
+                        completions.add(type);
+                    }
+                }
+            }
+        } else if (args.length == 3) {
+            String sub = args[0].toLowerCase();
+            String partial = args[2].toLowerCase();
+
+            // Spawn type after arena name
+            if (sub.equals("setspawn")) {
+                for (String type : Arrays.asList("prop", "hunter", "lobby")) {
+                    if (type.startsWith(partial)) {
+                        completions.add(type);
+                    }
+                }
+            }
+        }
+
+        return completions;
+    }
+}
