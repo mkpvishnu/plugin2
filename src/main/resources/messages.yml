@@ -34,11 +34,23 @@ prop:
   disguised: "&aYou are now disguised as &e{block}&a!"
   locked: "&7You are now locked in place."
   unlocked: "&7You can now move again."
+  cooldown: "&cYou must wait &e{seconds} &cseconds before changing props!"
+  no-changes-left: "&cYou have no prop changes remaining!"
+  cannot-change-now: "&cYou can only change props during the hiding or hunting phase!"
+  found: "&c&lYou've been found! Run and hide again!"
+  escaped: "&a&lYou escaped! You're hidden again."
+  forced-taunt: "&e&lForced taunt! &7You made a sound."
+  taunt-cooldown: "&cYou must wait &e{seconds} &cseconds before taunting again!"
+  taunt-success: "&a&lYou taunted! &7+50 points for the risk!"
+  cannot-taunt-now: "&cYou can only taunt during the hunting phase!"
+  late-game-glow: "&c&lLate game! &7You are now glowing for hunters to see!"
 
 # Hunter Messages
 hunter:
   miss-penalty: "&cMissed! You took &e{damage} &cdamage!"
   kill: "&aYou eliminated &e{player}&a!"
+  hit-prop: "&a&lProp found! &7Keep attacking to eliminate them!"
+  hit-wrong: "&cWrong block! You took &e{damage} &cdamage."
 
 # Taunt Messages
 taunt:

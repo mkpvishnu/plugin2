@@ -237,8 +237,16 @@ public class PlayerStats {
         this.totalTimeAsHiddenProp += seconds;
     }
 
+    public void addHiddenTime(long milliseconds) {
+        this.totalTimeAsHiddenProp += milliseconds / 1000;
+    }
+
     public void incrementSuccessfulTaunts() {
         this.successfulTaunts++;
+    }
+
+    public void addSuccessfulTaunts(int count) {
+        this.successfulTaunts += count;
     }
 
     public void incrementTimesAsHunter() {
@@ -249,12 +257,24 @@ public class PlayerStats {
         this.propsFound++;
     }
 
+    public void addPropsFound(int count) {
+        this.propsFound += count;
+    }
+
     public void incrementPropsKilled() {
         this.propsKilled++;
     }
 
+    public void addPropsKilled(int count) {
+        this.propsKilled += count;
+    }
+
     public void incrementWrongHits() {
         this.wrongHits++;
+    }
+
+    public void addWrongHits(int count) {
+        this.wrongHits += count;
     }
 
     public void incrementHunterDeaths() {
