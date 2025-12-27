@@ -15,7 +15,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Handles prop-specific item interactions.
+ * Handles prop-specific item interactions and lobby items.
  */
 public class PropItemListener implements Listener {
 
@@ -26,7 +26,7 @@ public class PropItemListener implements Listener {
     }
 
     /**
-     * Handles right-click interactions for props.
+     * Handles right-click interactions for props and lobby items.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -40,6 +40,16 @@ public class PropItemListener implements Listener {
         ItemStack item = event.getItem();
 
         if (item == null) return;
+
+        // Handle Compass - Team selector (lobby)
+        if (item.getType() == Material.COMPASS) {
+            Game game = plugin.getGameManager().getPlayerGame(player);
+            if (game != null && (game.getState() == GameState.WAITING || game.getState() == GameState.STARTING)) {
+                event.setCancelled(true);
+                plugin.getTeamSelectorGUI().open(player, game);
+                return;
+            }
+        }
 
         // Check if player is a prop in a game
         GamePlayer gp = plugin.getPlayerManager().getPlayer(player);

@@ -1,5 +1,7 @@
 package com.example.prophunt.config;
 
+import com.example.prophunt.team.TeamSelectionMode;
+
 /**
  * Holds settings for a PropHunt game.
  * Can be customized per-arena or use defaults.
@@ -7,15 +9,20 @@ package com.example.prophunt.config;
 public class GameSettings {
 
     // Player limits
-    private int minPlayers = 6;
+    private int minPlayers = 4;
     private int maxPlayers = 20;
+    private int minPropsToStart = 1;
+    private int minHuntersToStart = 1;
 
     // Timers (in seconds)
     private int lobbyCountdown = 30;
     private int hideTime = 30;
     private int seekTime = 300;
 
-    // Team balance
+    // Team selection
+    private TeamSelectionMode teamSelectionMode = TeamSelectionMode.CHOICE;
+
+    // Team balance (used in RANDOM mode)
     private double propPercentage = 0.6;
 
     // Prop settings
@@ -47,9 +54,12 @@ public class GameSettings {
         GameSettings copy = new GameSettings();
         copy.minPlayers = this.minPlayers;
         copy.maxPlayers = this.maxPlayers;
+        copy.minPropsToStart = this.minPropsToStart;
+        copy.minHuntersToStart = this.minHuntersToStart;
         copy.lobbyCountdown = this.lobbyCountdown;
         copy.hideTime = this.hideTime;
         copy.seekTime = this.seekTime;
+        copy.teamSelectionMode = this.teamSelectionMode;
         copy.propPercentage = this.propPercentage;
         copy.propHealth = this.propHealth;
         copy.canLock = this.canLock;
@@ -102,6 +112,30 @@ public class GameSettings {
 
     public void setMaxPlayers(int maxPlayers) {
         this.maxPlayers = Math.max(this.minPlayers, maxPlayers);
+    }
+
+    public int getMinPropsToStart() {
+        return minPropsToStart;
+    }
+
+    public void setMinPropsToStart(int minPropsToStart) {
+        this.minPropsToStart = Math.max(1, minPropsToStart);
+    }
+
+    public int getMinHuntersToStart() {
+        return minHuntersToStart;
+    }
+
+    public void setMinHuntersToStart(int minHuntersToStart) {
+        this.minHuntersToStart = Math.max(1, minHuntersToStart);
+    }
+
+    public TeamSelectionMode getTeamSelectionMode() {
+        return teamSelectionMode;
+    }
+
+    public void setTeamSelectionMode(TeamSelectionMode teamSelectionMode) {
+        this.teamSelectionMode = teamSelectionMode != null ? teamSelectionMode : TeamSelectionMode.CHOICE;
     }
 
     public int getLobbyCountdown() {

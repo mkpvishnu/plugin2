@@ -29,7 +29,7 @@ public class TeamManager {
     }
 
     /**
-     * Assigns teams to all players in the game.
+     * Assigns teams to all players in the game (RANDOM mode).
      *
      * @param players the players to assign
      * @param settings the game settings
@@ -49,6 +49,67 @@ public class TeamManager {
                 HunterPlayer hunter = HunterPlayer.fromGamePlayer(gp);
                 hunter.setAttackCooldown(settings.getAttackCooldown());
                 hunters.add(hunter);
+            }
+        }
+    }
+
+    /**
+     * Assigns teams based on player choices (CHOICE mode).
+     * Players who chose a team get that team.
+     * Undecided players are randomly assigned to balance teams.
+     *
+     * @param players the players to assign
+     * @param choices map of player UUID to their team choice (null = undecided)
+     * @param settings the game settings
+     */
+    public void assignTeamsWithChoices(Collection<GamePlayer> players,
+                                        Map<UUID, Team> choices,
+                                        GameSettings settings) {
+        List<GamePlayer> undecided = new ArrayList<>();
+
+        // First pass: assign players who made a choice
+        for (GamePlayer gp : players) {
+            Team choice = choices.get(gp.getUuid());
+            if (choice == Team.PROPS) {
+                PropPlayer prop = PropPlayer.fromGamePlayer(gp);
+                props.add(prop);
+            } else if (choice == Team.HUNTERS) {
+                HunterPlayer hunter = HunterPlayer.fromGamePlayer(gp);
+                hunter.setAttackCooldown(settings.getAttackCooldown());
+                hunters.add(hunter);
+            } else {
+                undecided.add(gp);
+            }
+        }
+
+        // Second pass: assign undecided players to balance teams
+        Collections.shuffle(undecided);
+
+        int minProps = settings.getMinPropsToStart();
+        int minHunters = settings.getMinHuntersToStart();
+
+        for (GamePlayer gp : undecided) {
+            // Determine which team needs more players
+            boolean needsMoreProps = props.size() < minProps;
+            boolean needsMoreHunters = hunters.size() < minHunters;
+
+            if (needsMoreProps && !needsMoreHunters) {
+                PropPlayer prop = PropPlayer.fromGamePlayer(gp);
+                props.add(prop);
+            } else if (needsMoreHunters && !needsMoreProps) {
+                HunterPlayer hunter = HunterPlayer.fromGamePlayer(gp);
+                hunter.setAttackCooldown(settings.getAttackCooldown());
+                hunters.add(hunter);
+            } else {
+                // Both satisfied or both need more - assign randomly (favor smaller team)
+                if (props.size() <= hunters.size()) {
+                    PropPlayer prop = PropPlayer.fromGamePlayer(gp);
+                    props.add(prop);
+                } else {
+                    HunterPlayer hunter = HunterPlayer.fromGamePlayer(gp);
+                    hunter.setAttackCooldown(settings.getAttackCooldown());
+                    hunters.add(hunter);
+                }
             }
         }
     }

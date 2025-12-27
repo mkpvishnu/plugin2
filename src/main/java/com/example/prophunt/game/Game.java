@@ -9,6 +9,7 @@ import com.example.prophunt.player.HunterPlayer;
 import com.example.prophunt.player.PropPlayer;
 import com.example.prophunt.team.Team;
 import com.example.prophunt.team.TeamManager;
+import com.example.prophunt.team.TeamSelectionMode;
 import com.example.prophunt.util.MessageUtil;
 import com.example.prophunt.util.SoundUtil;
 import org.bukkit.Bukkit;
@@ -33,6 +34,7 @@ public class Game {
 
     private GameState state;
     private final Map<UUID, GamePlayer> waitingPlayers;
+    private final Map<UUID, Team> teamChoices; // null = random/undecided
 
     private Team winner;
     private long gameStartTime;
@@ -45,6 +47,7 @@ public class Game {
         this.timer = new GameTimer(plugin, this);
         this.state = GameState.WAITING;
         this.waitingPlayers = new HashMap<>();
+        this.teamChoices = new HashMap<>();
     }
 
     // ===== Player Management =====
@@ -86,6 +89,12 @@ public class Game {
         // Teleport to lobby
         if (arena.getLobbySpawn() != null) {
             player.teleport(arena.getLobbySpawn());
+        }
+
+        // Give team selector item in CHOICE mode
+        if (settings.getTeamSelectionMode() == TeamSelectionMode.CHOICE) {
+            player.getInventory().setItem(4, com.example.prophunt.gui.TeamSelectorGUI.createSelectorItem());
+            plugin.getMessageUtil().send(player, "team.select-prompt");
         }
 
         // Notify
@@ -182,6 +191,96 @@ public class Game {
         return teamManager.getAllPlayers().size();
     }
 
+    // ===== Team Choice Management =====
+
+    /**
+     * Sets a player's team choice for CHOICE mode.
+     *
+     * @param player the player
+     * @param team the team choice (null = random/undecided)
+     */
+    public void setTeamChoice(Player player, Team team) {
+        if (team == Team.SPECTATOR) {
+            team = null; // Spectator means undecided
+        }
+        teamChoices.put(player.getUniqueId(), team);
+
+        // Broadcast team counts update
+        broadcastTeamCounts();
+    }
+
+    /**
+     * Gets a player's team choice.
+     *
+     * @param player the player
+     * @return the team choice, or null if undecided
+     */
+    public Team getTeamChoice(Player player) {
+        return teamChoices.get(player.getUniqueId());
+    }
+
+    /**
+     * Gets the count of players who chose a specific team.
+     *
+     * @param team the team (null for undecided)
+     * @return the count
+     */
+    public int getTeamChoiceCount(Team team) {
+        int count = 0;
+        for (UUID uuid : waitingPlayers.keySet()) {
+            Team choice = teamChoices.get(uuid);
+            if (team == null) {
+                if (choice == null) count++;
+            } else if (team.equals(choice)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Broadcasts current team counts to all waiting players.
+     */
+    private void broadcastTeamCounts() {
+        int props = getTeamChoiceCount(Team.PROPS);
+        int hunters = getTeamChoiceCount(Team.HUNTERS);
+        int undecided = getTeamChoiceCount(null);
+
+        String message = MessageUtil.colorize(
+                "&aProps: " + props + " &7| &cHunters: " + hunters + " &7| &eUndecided: " + undecided);
+
+        for (GamePlayer gp : waitingPlayers.values()) {
+            plugin.getMessageUtil().sendActionBar(gp.getPlayer(), message);
+        }
+    }
+
+    /**
+     * Checks if there are enough players on each team to start (CHOICE mode).
+     *
+     * @return true if teams are valid
+     */
+    private boolean hasValidTeams() {
+        if (settings.getTeamSelectionMode() == TeamSelectionMode.RANDOM) {
+            // In random mode, just check total player count
+            return getPlayerCount() >= 2; // Need at least 2 to have 1 on each team
+        }
+
+        int propChoices = getTeamChoiceCount(Team.PROPS);
+        int hunterChoices = getTeamChoiceCount(Team.HUNTERS);
+        int undecided = getTeamChoiceCount(null);
+
+        // In CHOICE mode: need at least minProps and minHunters
+        // Undecided players can fill either team
+        int minProps = settings.getMinPropsToStart();
+        int minHunters = settings.getMinHuntersToStart();
+
+        // Can we satisfy minimum requirements?
+        int propsNeeded = Math.max(0, minProps - propChoices);
+        int huntersNeeded = Math.max(0, minHunters - hunterChoices);
+
+        return undecided >= (propsNeeded + huntersNeeded);
+    }
+
     // ===== Game State Management =====
 
     /**
@@ -189,7 +288,7 @@ public class Game {
      */
     private void checkStart() {
         if (state != GameState.WAITING) return;
-        if (getPlayerCount() >= settings.getMinPlayers()) {
+        if (getPlayerCount() >= settings.getMinPlayers() && hasValidTeams()) {
             startCountdown();
         }
     }
@@ -249,9 +348,14 @@ public class Game {
         setState(GameState.HIDING);
         gameStartTime = System.currentTimeMillis();
 
-        // Assign teams
-        teamManager.assignTeams(waitingPlayers.values(), settings);
+        // Assign teams based on selection mode
+        if (settings.getTeamSelectionMode() == TeamSelectionMode.CHOICE) {
+            teamManager.assignTeamsWithChoices(waitingPlayers.values(), teamChoices, settings);
+        } else {
+            teamManager.assignTeams(waitingPlayers.values(), settings);
+        }
         waitingPlayers.clear();
+        teamChoices.clear();
 
         // Setup props
         for (PropPlayer prop : teamManager.getProps()) {
@@ -518,6 +622,7 @@ public class Game {
         // Clear state
         teamManager.clear();
         waitingPlayers.clear();
+        teamChoices.clear();
         winner = null;
 
         setState(GameState.WAITING);

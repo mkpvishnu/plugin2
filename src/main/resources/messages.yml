@@ -28,6 +28,10 @@ game:
 team:
   assigned-prop: "&aYou are a &6PROP&a! Hide from the hunters!"
   assigned-hunter: "&cYou are a &4HUNTER&c! Find and eliminate the props!"
+  select-prompt: "&6Click the &eCompass &6in your hotbar to select your team!"
+  joined-props: "&aYou joined the &6Props &ateam!"
+  joined-hunters: "&cYou joined the &4Hunters &cteam!"
+  joined-random: "&eYou will be randomly assigned a team."
 
 # Prop Messages
 prop:

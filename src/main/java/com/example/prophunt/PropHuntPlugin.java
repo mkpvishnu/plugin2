@@ -7,6 +7,7 @@ import com.example.prophunt.config.ConfigManager;
 import com.example.prophunt.disguise.DisguiseManager;
 import com.example.prophunt.game.GameManager;
 import com.example.prophunt.gui.PropSelectorGUI;
+import com.example.prophunt.gui.TeamSelectorGUI;
 import com.example.prophunt.listeners.*;
 import com.example.prophunt.managers.SelectionManager;
 import com.example.prophunt.mechanics.LateGameManager;
@@ -50,6 +51,7 @@ public class PropHuntPlugin extends JavaPlugin {
 
     // GUI
     private PropSelectorGUI propSelectorGUI;
+    private TeamSelectorGUI teamSelectorGUI;
 
     // API
     private PropHuntAPI api;
@@ -142,6 +144,7 @@ public class PropHuntPlugin extends JavaPlugin {
 
         // GUI
         propSelectorGUI = new PropSelectorGUI(this);
+        teamSelectorGUI = new TeamSelectorGUI(this);
 
         // API
         api = new PropHuntAPI(this);
@@ -252,6 +255,10 @@ public class PropHuntPlugin extends JavaPlugin {
 
     public PropSelectorGUI getPropSelectorGUI() {
         return propSelectorGUI;
+    }
+
+    public TeamSelectorGUI getTeamSelectorGUI() {
+        return teamSelectorGUI;
     }
 
     public PropHuntAPI getAPI() {
